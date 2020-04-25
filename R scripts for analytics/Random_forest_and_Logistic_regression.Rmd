@@ -1,0 +1,239 @@
+---
+title: 'ISYE-6501 : Spring 2020 HW7'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question - 10.1a
+
+Load libraries required: 
+
+```{r, echo=TRUE}
+library(readr)
+library(outliers)
+library(data.table)
+library(rpart)
+library(rsample)
+library(dplyr) 
+library(rpart.plot)
+library(InformationValue)
+```
+
+#### Load the data : 
+
+Load UC crimes data set and explore. 
+
+
+```{r, echo=FALSE}
+
+
+USCrimes <- fread('http://www.statsci.org/data/general/uscrime.txt')
+
+head(USCrimes)
+
+```
+
+#### Explore and prepare the training data
+
+From the data set prepare the training and test data sets with training being 70% and 30% test data set. 
+
+```{r, echo=TRUE}
+
+set.seed(123)
+ur_crimes_split <- initial_split(USCrimes,prop=0.7)
+ur_crimes_train <- training(ur_crimes_split)
+ur_crimes_test  <- testing(ur_crimes_split)
+
+```
+
+
+Fit a regression tree using rpart function. For the rpart to fit linear regression, specify "ANOVA" as the method. : 
+
+```{r, echo=TRUE}
+
+m1 <- rpart(
+  formula = Crime ~ .,
+  data    = ur_crimes_train,
+  method  = "anova"
+  )
+```
+
+Now plot the model using rpart.plot. Plot the time series temperatures data
+
+```{r, echo=TRUE}
+
+rpart.plot(m1)
+
+
+```
+
+Plot the complexity parameter: 
+```{r, echo=TRUE}
+
+plotcp(m1)
+
+
+```
+
+
+
+By default, rpart.plot gives the percentage of data that fall to that node and the average crime rate for that branch. 
+
+```{r, echo=TRUE}
+
+rpart.plot(m1)
+
+```
+
+Print the complexity parameter of the model.  Rpart is performing optimal splits with 2 splits and 3 terminal nodes.
+
+
+```{r, echo=TRUE}
+m1$cptable
+
+```
+
+Now run the predict using the test data. Predict will predict for the different test poitns in the test data set.
+
+```{r, echo=TRUE}
+pred <- predict(m1, newdata = ur_crimes_test)
+
+summary(pred)
+
+pred
+
+```
+
+## Question - 10.1b
+
+
+
+```{r, echo=TRUE}
+
+library(randomForest)
+
+model_forest <- randomForest(
+  formula = Crime ~ .,
+  data    = ur_crimes_train)
+
+print(model_forest)
+
+print(importance(model_forest,type = 2))
+```
+
+
+
+## Question - 10.2
+
+Logistic regression can be used for binomial predictions. Linear regression is good for predicting the continuous valued responses whereas logistic regressions for the categorical outcomes. Logistic regression is modeled using a sigmoid function. It maps values between 0 and 1. 
+
+It has wide variety of realtime applications. Examples include, marketing , finance, health care, etc. 
+
+Specifically, if we take the financial applications. It can be used for the credit worthiness of a customer for home loan. We can use predictors like  : 
+
+Employed or not 
+
+Married or not 
+
+Education : college, high school, etc 
+
+Race : White, Asian, Black , etc 
+
+Dual_Income : yes or no
+
+
+
+## Question - 10.3
+
+Load the German credit data set from the file:
+
+
+```{r, echo=TRUE}
+
+german_credit_data <- read.table("C:/OMSA GATech/HW7/data 10.3/germancredit.txt", stringsAsFactors = FALSE, header = TRUE)
+```
+   
+#### Explore the data
+
+```{r, echo=TRUE}
+
+head(german_credit_data)
+
+```   
+
+
+Explore the data : 
+
+```{r, echo=TRUE}
+
+head(german_credit_data)
+
+```   
+
+
+
+Split the data into test and training data sets: 
+
+```{r, echo=TRUE}
+
+set.seed(123)
+german_credit_data_split <- initial_split(german_credit_data,prop=0.7)
+german_credit_data_train <- training(german_credit_data_split)
+german_credit_data_test  <- testing(german_credit_data_split)
+
+```
+
+
+Build a logistic regression model: 
+```{r, echo=TRUE}
+
+logit_model <- glm(as.factor(A21) ~ ., family=binomial(link='logit'), data=german_credit_data_train)
+
+summary(logit_model)
+
+``` 
+
+
+Predict using the model: 
+```{r, echo=TRUE}
+
+predicted <- predict(logit_model, german_credit_data_test, type="response")
+
+``` 
+
+
+The default optimal prediction probablity score is 0.5. 
+
+
+Lets claculate the opttimal prediction probability score that minizes the mis-classification errors: 
+
+```{r, echo=TRUE}
+
+optCutOff <- optimalCutoff(german_credit_data_test$A21, predicted)[1]
+
+optCutOff
+
+``` 
+
+Mis classfication error : It is the precentage mismatch between predicted vs actuals. 
+
+
+```{r, echo=TRUE}
+
+misClassError(german_credit_data_test$A21, predicted, threshold = optCutOff)
+
+``` 
+
+Compute the confusion matrix: 
+
+```{r, echo=TRUE}
+
+
+confusionMatrix(german_credit_data_test$A21, predicted, threshold = optCutOff)
+
+``` 
