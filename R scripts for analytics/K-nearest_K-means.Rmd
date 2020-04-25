@@ -1,0 +1,346 @@
+---
+title: 'ISYE-6501 : Spring 2020 HW2'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question - 3.1a
+
+Load libraries required: 
+
+```{r, echo=TRUE}
+library(readr)
+library(kknn)
+library(caret)
+library(data.table)
+```
+
+
+#### Load the data : 
+
+Data from the given file can be loaded using one of the read commands. I have used read.delim. The default delimiter is 'white space', that is one or more spaces, tabs newlines or carraige returns. Below is the sample command. 
+
+
+```{r, echo=FALSE}
+cred_card_data <- read_delim("C:/OMSA GATech/HW2/data 3.1/credit_card_data-headers.txt", "\t", escape_double = FALSE, trim_ws = TRUE)
+
+```
+
+#### Split the data for cross validation into training and test. 
+
+```{r, echo=TRUE}
+
+set.seed(40)
+
+rotations <- rep(c(1, 2, 3, 4, 5), length.out = nrow(cred_card_data))
+
+cc_train_data <- cred_card_data[(rotations == 1 | rotations == 3 | rotations == 5 |  rotations == 2), ]
+cc_test_data <- cred_card_data[rotations == 4, ]
+
+```
+
+
+Now for a range of k values run the cross validation function and get the best accuracy for training data set.
+
+```{r, echo=TRUE}
+
+set.seed(40)
+
+percentage_matched <- rep(0, 10)
+
+k_values <- c(1, 2, 3, 4, 5, 10, 15, 20, 25, 30)
+
+index <- 1
+
+for (kval in k_values) {
+   
+   cv_model = cv.kknn(R1~., cc_train_data, kcv=4, k=kval, kernel="optimal", distance =2 , scale=TRUE)
+   
+   cv_model_y_yhat  = data.table(cv_model[[1]])
+   
+   rounded_predictions = round(cv_model_y_yhat$yhat)
+   
+   acc = sum(rounded_predictions == cc_train_data[,11]) / nrow(cc_train_data) * 100
+   
+   percentage_matched[index] = acc
+   
+   index <- index + 1 
+}
+
+k_accuracy_table <- data.table(k_nearest_val = k_values,
+                 accuracy = percentage_matched)
+
+print(k_accuracy_table)
+
+plot(k_values, percentage_matched, pch  = 24, cex  = 3, lwd  = 3, col  = "green")
+title("Percentage matched vs k values.")
+
+```
+
+Based on the above results, Lets pick k value with best accuracy k = 20 for validation. 
+
+```{r, echo=TRUE}
+
+set.seed(40)
+
+model_for_k_20 =train.kknn(R1 ~ ., data = cc_train_data, ks = 20, kernel = "optimal", scale = TRUE)
+
+predictions__for_k20 = round(fitted(model_for_k_20)[[1]])
+
+acc_20 = sum(predictions__for_k20 == cc_train_data[,11]) / nrow(cc_train_data) * 100
+
+print(paste("Accuracy for K=20 is ::", acc_20 ))  
+ 
+
+```
+
+
+Now using the created mode, get the predictions for the test data set.
+
+```{r, echo=TRUE}
+
+set.seed(40)
+
+test_pred_for_k_20 <-predict(model_for_k_20, cc_test_data)
+
+predictions__for_k20_with_test_set = round(test_pred_for_k_20)
+
+acc_k_20_test = sum(predictions__for_k20_with_test_set == cc_test_data[,11]) / nrow(cc_test_data) * 100
+
+print(paste("Accuracy for K=20 with test data is ::", acc_k_20_test )) 
+
+```
+
+## Question - 3.1b
+
+For this question, I'll be using SUpport vector machine. First lets split the data into training, validation and test sets. 
+
+```{r, echo=TRUE}
+data_splitting_spec = c(train = .6, test = .2, validate = .2)
+
+g = sample(cut(
+  seq(nrow(cred_card_data)), 
+  nrow(cred_card_data)*cumsum(c(0,data_splitting_spec)),
+  labels = names(data_splitting_spec)
+))
+
+train_validation_test_data = split(cred_card_data, g)
+
+
+```
+
+
+Now compute the models for various C values using the training data.
+
+```{r, echo=TRUE}
+# Write a function to compute the model
+
+library(kernlab)
+
+set.seed(25)
+
+compute_model <- function(training_data, response_vector, lambda) {
+  
+  model_for_val <- ksvm(training_data, response_vector, type="C-svc", kernel="vanilladot", C=lambda, scaled=TRUE)
+  
+  #calculate coeeficients
+  # calculate a1…am 
+  a_for_val <- colSums(model_for_val@xmatrix[[1]] * model_for_val@coef[[1]])
+  
+  a0_for_val <- model_for_val@b 
+
+  a0_for_val
+  
+  # predict
+  pred_for_val <- predict(model_for_val,training_data)
+
+  pred_for_val
+
+  # Compare actual vs predicted
+  accuracy_percentage <- sum(pred_for_val == response_vector) / nrow(training_data) * 100
+  
+  result <- c(coeffs = a_for_val, a0 = a0_for_val, accuracy = accuracy_percentage)
+  
+  return(result)
+}
+
+
+c_values_for_ksvm <- c(0.0005, 1, 15, 100, 500, 700, 1000)
+
+# training data
+
+training_set = as.matrix(train_validation_test_data$train[,1:10])
+
+# Response vector :
+
+response_vector <- train_validation_test_data$train[,11]
+
+accuracies <- rep(0,7)
+  
+acc_index <- 1
+ 
+for (c in c_values_for_ksvm) {
+   
+   rslt <- compute_model(training_set, response_vector, c )
+   
+   accuracies[acc_index] = rslt[["accuracy"]]
+   
+   acc_index <- acc_index + 1 
+}
+
+c_accuracy_table <- data.table(C_values = c_values_for_ksvm,
+                 accuracy = accuracies)
+
+
+print(c_accuracy_table)
+
+  
+```
+  
+Based on the results, any C above 100 has same accuracy. So, lets pick C = 100 and validate it with validation data set.
+
+
+```{r, echo=TRUE}
+
+c_validation = 100
+
+# training data
+
+validation_data_set = as.matrix(train_validation_test_data$validate[,1:10])
+
+# Response vector :
+
+validation_response_vector <- train_validation_test_data$validate[,11]
+
+ validation_rslt <- compute_model(validation_data_set, validation_response_vector, c_validation )
+ 
+ print(paste("Accuracy for C=100 is : ", validation_rslt[["accuracy"]]))
+
+
+```
+
+
+Now report the accuracy on the test set: 
+```{r, echo=TRUE}
+
+c_test = 100
+
+# training data
+
+test_data_set = as.matrix(train_validation_test_data$test[,1:10])
+
+# Response vector :
+
+test_response_vector <- train_validation_test_data$test[,11]
+
+ test_rslt <- compute_model(test_data_set, test_response_vector, c_test )
+ 
+ print(paste("Accuracy for C=100 is : ", validation_rslt[["accuracy"]]))
+
+```
+
+## Question - 4.1 
+
+Clustering can be applied to financial market data analysis. Specifically in this example, I want to use clustering to classify the stocks into various buckets.
+
+Some of the predictors, we can use are : 
+
+1. volatility
+
+2. Stock returns 
+
+3. 20 day moving average. 
+
+4. momentum of the stock 
+
+5. P/E ratio 
+
+Above mentioned are some of the factors which we can use as predictors to classify the stocks into different clusters. Then, we can use that information for investment decisions based on the risk we are willing to take.
+
+
+## Question - 4.2
+
+Lets use the K -means function to cluster the Iris with different k values and find the best 
+
+
+### Load the data for iris
+
+```{r, echo=TRUE}
+library(datasets)
+
+```
+
+### Explore the data
+
+```{r, echo=TRUE}
+head(iris)
+
+```
+
+
+As there are different 3 species in the response in the given dataset, lets use K =3.  For predictors use sepal.length and Sepal.Width. 
+
+
+Here nstart options tries that many specied random combinations and picks the best one.
+
+
+```{r, echo=TRUE}
+
+set.seed(20)
+
+kmeans_result_sepal_w_l_as_predictors <- kmeans(iris[, 1:2], 3, nstart = 20)
+
+```
+
+
+Now examine the cluster from result. 
+
+```{r, echo=TRUE}
+
+
+
+kmeans_result_sepal_w_l_as_predictors$cluster
+
+```
+
+Present the cluster with respect to the species: 
+
+```{r, echo=TRUE}
+
+table(kmeans_result_sepal_w_l_as_predictors$cluster, iris$Species)
+
+```
+
+Repeat the process again with Petal.Length and Width as predictors.
+
+
+```{r, echo=TRUE}
+
+set.seed(20)
+
+kmeans_result_petal_w_l_as_predictors <- kmeans(iris[, 3:4], 3, nstart = 20)
+
+table(kmeans_result_petal_w_l_as_predictors$cluster, iris$Species)
+
+```
+
+Repeat the process again with both Petal and Sepal lengths and widths  as predictors.
+
+
+```{r, echo=TRUE}
+
+set.seed(20)
+
+kmeans_result_all_attrs_predictors <- kmeans(iris[, 1:4], 3, nstart = 20)
+
+table(kmeans_result_all_attrs_predictors$cluster, iris$Species)
+
+```
+
+
+From the results, we can observe that, Petal.Length and Width are better predictors for k = 3.

@@ -1,0 +1,156 @@
+---
+title: 'ISYE-6501 : Spring 2020 HW4'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question - 7.1
+
+Exponential smoothing is a technique for smoothing the time series data. It can be used for forecasting the future valuse using the weighted average of the historical time series data. 
+
+As an example, we can use this technique for forecasting the stock prices. I would expect the alpha value to be closer to the 0. I think, stock prices follow certain trend and the prices can be forecasted based on previous observations. So we can use alpha closer to 0 , giving more weightage to the previous observations.
+
+
+## Question - 7.2
+
+Load libraries required: 
+
+```{r, echo=TRUE}
+library(readr)
+library(outliers)
+library(data.table)
+library(xlsx)
+```
+
+#### Clean up the envrionment
+
+
+```{r, echo=TRUE}
+
+v <- c("temperatures","temperatures_vector", "temps_vector_ts") 
+
+rm(ls = v)
+
+```
+
+
+#### Load the data : 
+
+Load the temperatures data set
+
+
+```{r, echo=FALSE}
+
+temperatures <- read.table("C:/OMSA GATech/HW4/data 7.2/temps.txt", stringsAsFactors = FALSE, header = TRUE)
+
+```
+
+#### Explore the data
+
+```{r, echo=TRUE}
+
+head(temperatures)
+
+```
+
+
+Convert temperatures into a time series vector
+
+```{r, echo=TRUE}
+
+temperatures_vector <- as.vector(unlist(temperatures[,2:21]))
+
+temps_vector_ts <- ts(temperatures_vector, start=1996, frequency = 123)
+
+```
+
+Plot the time series temperatures data
+
+```{r, echo=TRUE}
+
+plot(temps_vector_ts)
+
+```
+
+#### Plot the data using Decomposition by moving averages.
+
+```{r, echo=TRUE}
+
+plot(decompose(temps_vector_ts))
+
+```
+
+
+####  What is exponential smoothing ? 
+
+Exponential smoothing is techique for smoothing time series data. The smoothing functions is represented by the following formula: 
+
+{\displaystyle s_{t}=\alpha x_{t}+(1-\alpha )s_{t-1}=s_{t-1}+\alpha (x_{t}-s_{t-1})}.
+
+where \alpha is smoothing factor between 0 < \alpha < 1. 
+
+
+Let's use Holt Winters function to apply exponential smoothing on the temperatures data.
+
+
+```{r, echo=TRUE}
+
+temps_vector_ts_hw <- HoltWinters(temps_vector_ts, alpha = NULL, beta = NULL, gamma = NULL, seasonal = "additive")
+
+```
+
+Summary of the model: 
+
+```{r, echo=TRUE}
+
+summary(temps_vector_ts_hw)
+
+```
+
+
+Explore the fitted values and plot. 
+
+
+```{r, echo=TRUE}
+
+head(temps_vector_ts_hw$fitted)
+
+plot(temps_vector_ts_hw)
+
+```
+
+
+Now export the fitted (smoothed) temperature values from the Holt-Winters function and apply the CUSUM model for analysis.
+
+To detect the end of summer using the given temperature dataset with CUSUM algortihm, following approach has been followed: 
+
+1.  Computed the mu as average of temperature between July 1st and September 30th. 
+
+2. Constant C was computed as 0.5 * standard deviation of the temperature for a given year. 
+
+3. Threshold T was computed as 5 * standard deviation.
+
+4. Then for each year computed the CUSUM using = Max (0, S(t-1) + (mu - x(i) -C)). As we are looking to detect the decreasing temperatures, used mu - x(i). 
+
+5. Based on the analysis, duration wise , 2005 summer was longest and the avg temperature wise, 2010 recorded highest avg temperature. Please refer to the Excel spreadsheets for the CUSUM computations, analysis and charts.
+
+6. Spreadsheet details :
+  
+   a. Temps sheet has the fitted data from the Holt-Winters model. 1996 data will not be present as that was used by HW for fitting the model.
+   
+   b. Cusum Analysis-1 sheet has CUSUM calculations by each year. Then highlighted the cooling off date based on CUSUM change detection for each column. 
+   
+   c. Cusum Analysis-2 sheet has analysis for interpreting the duration of the summer and avg summer temperature charts.
+   
+   
+
+#### Resources: 
+
+1. BlueJeans office hour video : https://bluejeans.com/playback/s/KmWjgZ8lfIoMtoJML94yuazOM7yvY8NQxAhUZjTtZH9663EjnYklpV5vCa4VdCTH
+2. https://en.wikipedia.org/wiki/Exponential_smoothing
+

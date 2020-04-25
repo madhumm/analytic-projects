@@ -1,0 +1,118 @@
+---
+title: 'ISYE-6501 : Spring 2020 HW5'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question - 8.1
+
+Linear regression is a technique to model the relationship between response variable and explanatory variables. If we use single explanatory variable, it is called simple linear regression. If we use more than one variable, then it is multiple linear regression. 
+
+Linear regression has applications in weather prediction, financial modeling, biological applications, social sciences, etc. One specific real life situation is, its application in predicting the expected stock returns of financial security. 
+
+We can use market's broader index returns , market valuation , valuation ratios to predict the stock returns.
+
+
+## Question - 8.2
+
+Load libraries required: 
+
+```{r, echo=TRUE}
+library(readr)
+library(outliers)
+library(data.table)
+library(xlsx)
+```
+
+
+Load the data from the repository & create a box plot of the response variable and check for the outliers: 
+
+```{r, echo=TRUE}
+
+
+
+USCrimes <- fread('http://www.statsci.org/data/general/uscrime.txt')
+
+head(USCrimes)
+
+boxplot(USCrimes$Crime)
+
+```
+
+Looks like there are some outliers. In a box-plot, the data points outside 1.5 quartile range are considered to be outliers. We can observe from the plot, that there are few outliers.
+
+Build a linear regression model : 
+
+We will be using the lm function for fitting the linear model. For the formula, lets consider all the predictors given in the dataset.
+
+```{r, echo=TRUE}
+
+
+us_crimes_model <- lm(Crime~ ., data = USCrimes)
+
+summary(us_crimes_model)
+
+```
+
+Print the co-efficients of the model : 
+
+```{r, echo=TRUE}
+
+
+us_crimes_model$coefficients
+
+
+
+```
+
+
+#### Using model summary statistics, we can analyze the quality of the model.  
+
+We can take a look at the model p-value, individual predictor p-values, R^2 and adjusted R^2 to for understanding the quality of the model. 
+
+##### p-value
+
+For the model to be significant, the p-value should be less than pre-determined significance level. For a 95% confidence interval, the significance level is 0.05. 
+
+For linear regression, Null is hypothesis is that coefficients are Zero and alternative hypothesis says that they are non-zero. 
+
+For 0.05 significance, we can say that Ed (schooling), Ineq, and Prob are significant. 
+
+##### R^2 and adjusted R^2 : 
+
+R^2 explains the variation in the response variable based on the predictor variables. High R^2 is better. Its value is in between 0 and 1. As the predictor variables increases in the model, R^2 goes up. Adjusted R^2 is adjusted R^2 value for the number of predictors in the model. It only increases if the new predictor improves the model by more than expected by chance. 
+
+In the model, R^2 is : 0.8031 and adjusted R-sqaured : 0.7078. 
+
+It means the model explains 80% of the variability in the response variable and using adjusted R^2 roughly 70% of the variability is explained by the predictors. 
+
+
+In the current generated model, we have considered all the given predictors. Further, we can generate models with combinations of different predictor variabes by using various tests like correlation, normality tests, and k-fold cross validation, etc. 
+
+#### Predict the model 
+
+
+```{r, echo=TRUE}
+
+
+test_point <- data.frame(M = 14.0, So = 0, Ed = 10.0, Po1 = 12.0, Po2 = 15.5, LF = 0.640, M.F = 94.0, Pop = 150, NW = 1.1, U1 = 0.120, U2 = 3.6, Wealth = 3200, Ineq = 20.1, Prob = 0.04, Time = 39.0 )
+
+us_crimes_model_predict <- predict(us_crimes_model, test_point)
+
+us_crimes_model_predict
+
+```
+
+For the given test point, the model is predicting 155.4349 crimes per 100,000. 
+
+
+#### Resources: 
+
+1. http://r-statistics.co/Linear-Regression.html
+2. https://www.investopedia.com/terms/r/regression.asp
+

@@ -1,0 +1,199 @@
+---
+title: 'ISYE-6501 : Spring 2020 HW1'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question . 2.1
+
+Classification can be applied to wide variety of problems by using the historical data. Some examples are : 1. classifying the good vs spam email, 2. classifying the credit  profiles of the applicants for loans in a bank, 3. classifying the shoppers based on their spending behavior, etc. 
+
+One particular example I would like to elaborate on is classifying the Fixed Income bonds for investing. There are various types of bonds available in the market for investing. For ex: CORP, MUNI Government bonds, Treasury bills, etc. To help investors with investment decisions, we can apply classification algorithms to classify them for risk and return. 
+
+Some of the predictors, we can use are : 
+
+1. Issuer of the bond : Whether the bond is issued by Government, Corporate, or Municipality. 
+
+2. Rating of the bond : ratings are issued by agencies like  Standard & Poors, Fitch and Moody's 
+
+3. Currency exposure of the bond: In which currency it was issued and if there's any risk with that. 
+
+4. Interest rate on the bond : Coupon rate being offered on the bond. 
+
+5. Maturity date : when it will mature. 
+
+6. Issuer country: In which country it was issued. 
+
+
+Above mentioned are some of the factors which we can use as predictors to classify the bonds. At a high level, we can use these predictors to classify the bonds for Risk / amount of return. 
+
+
+## Question - 2.2
+
+Load libraries required: 
+
+```{r, echo=TRUE}
+library(readr)
+library(kernlab)
+library(caret)
+```
+
+
+#### Load the data : 
+
+Data from the given file can be loaded using one of the read commands. I have used read.delim. The default delimiter is 'white space', that is one or more spaces, tabs newlines or carraige returns. Below is the sample command. 
+
+
+```{r, echo=FALSE}
+credit_card_data_headers <- read_delim("C:/Users/madhu/Desktop/OMS Analytics GA Tech/HW1/data 2.2/credit_card_data-headers.txt", "\t", escape_double = FALSE, trim_ws = TRUE)
+
+```
+
+#### Explore the data to understand the structure: 
+
+```{r, echo=TRUE}
+
+head(credit_card_data_headers)
+
+```
+
+
+#### Using the Ksvm command, now create the model when C ( lambda) = 100: 
+
+```{r, echo=TRUE}
+
+# training data
+
+training_Data1 <- as.matrix(credit_card_data_headers[,1:10])
+
+# Response vector :
+
+response_vector1 <- credit_card_data_headers[,11]
+
+model_c100 <- ksvm(training_Data1, response_vector1, type="C-svc", kernel="vanilladot", C=100, scaled=TRUE) 
+
+#calculate coeeficients
+# calculate a1…am 
+a_c100 <- colSums(model_c100@xmatrix[[1]] * model_c100@coef[[1]]) 
+
+# print co-efficents
+a_c100
+
+
+
+```
+
+#### Calculate the a0:  
+
+```{r, echo=TRUE}
+
+a0 <- -model_c100@b 
+
+a0
+
+```
+
+#### Model Equation:
+
+0.08158492 -0.002159778 * x1 + 0.031315574 * x2 + 0.040236924 * x3 + 0.085562427 * x4 + 0.204350085 * x5 + -0.117795134 * x6 + 0.105826922 * x7 + -0.003402195 * x8 + -0.021715341 * x9 + 0.051103450 * x10 = 0 
+
+
+
+Use the created model and predict the response for a test data: 
+
+```{r, echo=FALSE}
+
+pred_c100 <- predict(model_c100,credit_card_data_headers[,1:10])
+
+
+```
+
+#### Now compare the model prediction with the actual classification and look at the percentage matched. (in %): 
+
+```{r, echo=TRUE}
+
+sum(pred_c100 == credit_card_data_headers[,11]) / nrow(credit_card_data_headers) * 100
+
+pred.factor <- factor(pred_c100)
+
+credit_card_data_headers.factor <- factor(credit_card_data_headers$R1)
+
+confusionMatrix(pred.factor, credit_card_data_headers.factor, dnn = c(0, 1))
+
+ctable <- as.table(matrix(c(286, 17, 72, 279), nrow = 2, byrow = TRUE))
+fourfoldplot(ctable, color = c("#CC6666", "#99CC99"),
+             conf.level = 0, margin = 1, main = "Confusion Matrix for KSVM model where C = 100")
+
+```
+
+#### Now create a new model,  using various C values:
+
+```{r, echo=TRUE}
+
+# training data
+
+training_Data2 <- as.matrix(credit_card_data_headers[,1:10])
+
+# Response vector :
+
+response_vector2 <- credit_card_data_headers[,11]
+
+# Write a function to compute the model
+
+compute_model <- function(training_data, response_vector, lambda) {
+  
+  model_for_val <- ksvm(training_data, response_vector, type="C-svc", kernel="vanilladot", C=lambda, scaled=TRUE)
+  
+  #calculate coeeficients
+  # calculate a1…am 
+  a_for_val <- colSums(model_for_val@xmatrix[[1]] * model_for_val@coef[[1]])
+  
+  a0_for_val <- -model_for_val@b 
+
+  a0_for_val
+  
+  # predict
+  pred_for_val <- predict(model_for_val,credit_card_data_headers[,1:10])
+
+  pred_for_val
+
+  # Compare actual vs predicted
+  accuracy_percentage <- sum(pred_for_val == credit_card_data_headers[,11]) / nrow(credit_card_data_headers) * 100
+  
+  result <- c(coeffs = a_for_val, a0 = a0_for_val, accuracy = accuracy_percentage)
+  
+  return(result)
+  
+}
+
+```
+
+
+#### Accuracy in percentage when C = 0.0005 
+
+
+```{r, echo=TRUE}
+rslt <- compute_model(training_Data2, response_vector2, 0.0005 )
+
+print(paste("Accuracy for C=0.0005 is : ", rslt[["accuracy"]]))
+
+```
+
+
+#### Accuracy in percentage when C = 500 
+```{r, echo=TRUE}
+rslt <- compute_model(training_Data2, response_vector2, 500 )
+
+print(paste("Accuracy for C=500 is : ", rslt[["accuracy"]]))
+
+```
+
+
+
+
+
